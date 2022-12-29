@@ -1,0 +1,24 @@
+{
+  "name": "data732_tp",
+  "version": "1.0.0",
+  "description": "Data vizualisation project",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/playerRC/DATA732_TP.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3"
+  },
+  "bugs": {
+    "url": "https://github.com/playerRC/DATA732_TP/issues"
+  },
+  "homepage": "https://github.com/playerRC/DATA732_TP#readme"
+}
