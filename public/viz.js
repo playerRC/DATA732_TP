@@ -52,6 +52,46 @@ async function createDataViz() {
         d["Timestamp"] = new Date(d["Timestamp"]);
     });
 
+    // déclaration des charts
+    var chart1 = dc.pieChart("#chart1", groupName);
+    var chart2 = dc.barChart("#chart2", groupName);
+
+    //déclararion du crossfilter
+    var mycrossfilter = crossfilter(dataset);
+
+    // set up des dimensions
+    var musEffectsDimension = mycrossfilter.dimension(function(dataset) { 
+        return dataset["Music effects"];
+    });
+    var hoursDimension = mycrossfilter.dimension(function(dataset) { 
+        return dataset["Hours per day"];
+    });
+
+    // set up des groups/values
+    var musEffectsGroup = musEffectsDimension.group().reduceCount();
+    var hoursGroup = hoursDimension.group().reduceCount();
+
+    chart1
+        .dimension(musEffectsDimension)
+        .group(musEffectsGroup)
+        .colors(["rgb(255,0,0)","rgb(0,255,0)"])
+        .on('renderlet', function(chart) {
+            montrerPourcentagesPieChart(chart);
+         });
+
+    chart2
+        .x(d3.scaleLinear().domain([0,25]))
+        .yAxisLabel("Nombre de personnes")
+        .xAxisLabel("Nb heures")
+        .dimension(hoursDimension)
+        .group(hoursGroup)
+        .on('renderlet', function(chart2) {
+            chart2.selectAll('rect').on('click', function(d) {
+               console.log('click!', d);
+            });
+         });
+    
+
     // On veut rendre tous les graphiques qui proviennent du chart group "dataset"
     dc.renderAll(groupName);
 }
