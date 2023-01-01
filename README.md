@@ -3,4 +3,4 @@ Création d'un dashboard interactif avec la Librairie DC.js
 
 ## Premiers essais
 
-Capture.PNG
+![Alt text](../Capture.PNG)
