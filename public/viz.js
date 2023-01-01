@@ -52,6 +52,65 @@ async function createDataViz() {
         d["Timestamp"] = new Date(d["Timestamp"]);
     });
 
+    // déclaration des charts
+    var chart1 = dc.pieChart("#chart1", groupName);
+    var chart2 = dc.barChart("#chart2", groupName);
+    var chart3 = dc.heatMap("#chart3", groupName);
+
+    //déclararion du crossfilter
+    var mycrossfilter = crossfilter(dataset);
+
+    // set up des dimensions
+    var musEffectsDimension = mycrossfilter.dimension(function(dataset) { 
+        return dataset["Music effects"];
+    });
+    var hoursDimension = mycrossfilter.dimension(function(dataset) { 
+        return dataset["Hours per day"];
+    });
+    var heatDimension = mycrossfilter.dimension(function(dataset) { 
+        return [dataset["Hours per day"], dataset["Depression"]];
+    });
+
+    // set up des groups/values
+    var musEffectsGroup = musEffectsDimension.group().reduceCount();
+    var hoursGroup = hoursDimension.group().reduceCount();
+    var heatGroup = heatDimension.group().reduceCount();
+
+    chart1
+        .dimension(musEffectsDimension)
+        .group(musEffectsGroup)
+        .colors(["rgb(255,0,0)","rgb(0,255,0)"])
+        .on('renderlet', function(chart) {
+            montrerPourcentagesPieChart(chart);
+         });
+
+    chart2
+        .x(d3.scaleLinear().domain([0,25]))
+        .yAxisLabel("Nombre de personnes")
+        .xAxisLabel("Nb heures")
+        .dimension(hoursDimension)
+        .group(hoursGroup)
+        .on('renderlet', function(chart2) {
+            chart2.selectAll('rect').on('click', function(d) {
+               console.log('click!', d);
+            });
+         });
+
+    chart3
+        .dimension(heatDimension)
+        .group(heatGroup)
+        .keyAccessor(function(d) { return d.key[0]; })
+        .valueAccessor(function(d) { return d.key[1]; })
+        .colorAccessor(function(d) { return +d.value; })
+        .title(function(d) {
+                return "Hours per day:   " + d.key[0] + "\n" +
+                        "Depression level:  " + d.key[1] + "\n" +
+                        "Nombre de personnes: " + d.value;
+            })
+        .colors(["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"])
+        .calculateColorDomain()
+    
+
     // On veut rendre tous les graphiques qui proviennent du chart group "dataset"
     dc.renderAll(groupName);
 }
