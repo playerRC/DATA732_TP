@@ -23,6 +23,20 @@ const montrerPourcentagesPieChart = (chart) => {
     })
 }
 
+// fonction pour générer des "fake" groups pour pouvoir regrouper plusieurs colonnes sur le même chart
+function combine_groups(groups) {
+    return {
+        all: function() {
+            var parts = Object.keys(groups).map(function(gk) {
+                return groups[gk].all().map(function(kv) {
+                    return {key: [gk, kv.key], value: kv.value};
+                })
+            });
+            return Array.prototype.concat.apply([], parts);
+        }
+    };
+}
+
 /**
  * La fonction pour créer la visualisation
  */
@@ -39,7 +53,6 @@ async function createDataViz() {
         d["Composer"] = d["Composer"] === "Yes";
         d["Exploratory"] = d["Exploratory"] === "Yes";
         d["Foreign languages"] = d["Foreign languages"] === "Yes";
-        d["Music effects"] = d["Music effects"] === "Improve";
 
         d["Age"] = +d["Age"];
         d["Hours per day"] = +d["Hours per day"];
@@ -56,6 +69,7 @@ async function createDataViz() {
     var chart1 = dc.pieChart("#chart1", groupName);
     var chart2 = dc.barChart("#chart2", groupName);
     var chart3 = dc.heatMap("#chart3", groupName);
+    var chart4 = dc.seriesChart("#chart4", groupName);
 
     //déclararion du crossfilter
     var mycrossfilter = crossfilter(dataset);
@@ -68,8 +82,25 @@ async function createDataViz() {
         return dataset["Hours per day"];
     });
     var heatDimension = mycrossfilter.dimension(function(dataset) { 
-        return [dataset["Hours per day"], dataset["Depression"]];
+        return [dataset["While working"], dataset["Anxiety"]];
     });
+
+    // chart 4
+    var seriesDimension = mycrossfilter.dimension(function(dataset) { 
+        return dataset["Hours per day"];
+    });
+    var depressionGroup = seriesDimension.group().reduceSum(function(d){ return d["Depression"]; });
+    var anxietyGroup = seriesDimension.group().reduceSum(function(d){ return d["Anxiety"]; });
+    var insomniaGroup = seriesDimension.group().reduceSum(function(d){ return d["Insomnia"]; });
+    var ocdGroup = seriesDimension.group().reduceSum(function(d){ return d["OCD"]; });
+    // regrouper les data
+    var seriesGroup = combine_groups({
+        depression: depressionGroup,
+        anxiety: anxietyGroup,
+        insomnia: insomniaGroup,
+        OCD: ocdGroup
+    });
+
 
     // set up des groups/values
     var musEffectsGroup = musEffectsDimension.group().reduceCount();
@@ -79,10 +110,10 @@ async function createDataViz() {
     chart1
         .dimension(musEffectsDimension)
         .group(musEffectsGroup)
-        .colors(["rgb(255,0,0)","rgb(0,255,0)"])
         .on('renderlet', function(chart) {
             montrerPourcentagesPieChart(chart);
-         });
+        })
+        .legend(dc.legend().x(50).y(20));
 
     chart2
         .x(d3.scaleLinear().domain([0,25]))
@@ -103,13 +134,26 @@ async function createDataViz() {
         .valueAccessor(function(d) { return d.key[1]; })
         .colorAccessor(function(d) { return +d.value; })
         .title(function(d) {
-                return "Hours per day:   " + d.key[0] + "\n" +
-                        "Depression level:  " + d.key[1] + "\n" +
+                return "While working?   " + d.key[0] + "\n" +
+                        "Anxiety level:  " + d.key[1] + "\n" +
                         "Nombre de personnes: " + d.value;
             })
         .colors(["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"])
         .calculateColorDomain()
-    
+
+    chart4
+        .chart(function(c) { 
+            return dc.lineChart(c).curve(d3.curveCardinal); 
+         })
+        .x(d3.scaleLinear().domain([0,24]))
+        .brushOn(false)
+        .yAxisLabel("Niveau")
+        .xAxisLabel("Nombre d'heures")
+        .dimension(seriesDimension)
+        .group(seriesGroup)
+        .seriesAccessor(function(d) {return d.key[0];})
+        .keyAccessor(function(d) {return d.key[1];})
+        .legend(dc.legend().x(50).y(20).itemHeight(13).gap(5).horizontal(2).legendWidth(1360).itemWidth(70));
 
     // On veut rendre tous les graphiques qui proviennent du chart group "dataset"
     dc.renderAll(groupName);
