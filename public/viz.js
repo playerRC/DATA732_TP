@@ -23,20 +23,6 @@ const montrerPourcentagesPieChart = (chart) => {
     })
 }
 
-// fonction pour générer des "fake" groups pour pouvoir regrouper plusieurs colonnes sur le même chart
-function combine_groups(groups) {
-    return {
-        all: function() {
-            var parts = Object.keys(groups).map(function(gk) {
-                return groups[gk].all().map(function(kv) {
-                    return {key: [gk, kv.key], value: kv.value};
-                })
-            });
-            return Array.prototype.concat.apply([], parts);
-        }
-    };
-}
-
 /**
  * La fonction pour créer la visualisation
  */
@@ -69,7 +55,7 @@ async function createDataViz() {
     var chart1 = dc.pieChart("#chart1", groupName);
     var chart2 = dc.barChart("#chart2", groupName);
     var chart3 = dc.heatMap("#chart3", groupName);
-    var chart4 = dc.seriesChart("#chart4", groupName);
+    var chart4 = dc.pieChart("#chart4", groupName);
 
     //déclararion du crossfilter
     var mycrossfilter = crossfilter(dataset);
@@ -84,28 +70,15 @@ async function createDataViz() {
     var heatDimension = mycrossfilter.dimension(function(dataset) { 
         return [dataset["While working"], dataset["Anxiety"]];
     });
-
-    // chart 4
-    var seriesDimension = mycrossfilter.dimension(function(dataset) { 
-        return dataset["Hours per day"];
+    var favGenreDimension = mycrossfilter.dimension(function(dataset) { 
+        return dataset["Fav genre"];
     });
-    var depressionGroup = seriesDimension.group().reduceSum(function(d){ return d["Depression"]; });
-    var anxietyGroup = seriesDimension.group().reduceSum(function(d){ return d["Anxiety"]; });
-    var insomniaGroup = seriesDimension.group().reduceSum(function(d){ return d["Insomnia"]; });
-    var ocdGroup = seriesDimension.group().reduceSum(function(d){ return d["OCD"]; });
-    // regrouper les data
-    var seriesGroup = combine_groups({
-        depression: depressionGroup,
-        anxiety: anxietyGroup,
-        insomnia: insomniaGroup,
-        OCD: ocdGroup
-    });
-
 
     // set up des groups/values
     var musEffectsGroup = musEffectsDimension.group().reduceCount();
     var hoursGroup = hoursDimension.group().reduceCount();
     var heatGroup = heatDimension.group().reduceCount();
+    var favGenreGroup = favGenreDimension.group().reduceCount();
 
     chart1
         .dimension(musEffectsDimension)
@@ -142,18 +115,79 @@ async function createDataViz() {
         .calculateColorDomain()
 
     chart4
-        .chart(function(c) { 
-            return dc.lineChart(c).curve(d3.curveCardinal); 
-         })
-        .x(d3.scaleLinear().domain([0,24]))
+        .dimension(favGenreDimension)
+        .group(favGenreGroup)
+        .on('renderlet', function(chart) {
+            montrerPourcentagesPieChart(chart);
+        })
+        .legend(dc.legend().x(50).y(20));
+
+    // pour le chart 5
+    var xAxisDimension = mycrossfilter.dimension(function(d) { return d["Hours per day"]; });
+    
+    var insomniaGroup = xAxisDimension.group().reduce(
+        function(p, v) {p.count++; p.total += v["Insomnia"]; p.average = p.total/p.count; return p;},
+        function(p, v) {p.count--;if (p.count == 0) {p.total = 0; p.average = 0;} else {p.total -= v["Insomnia"];p.average = p.total/p.count;}return p;},
+        function() {return {count: 0, total: 0, average: 0};});
+    var OCDGroup = xAxisDimension.group().reduce(
+        function(p, v) {p.count++; p.total += v["OCD"]; p.average = p.total/p.count; return p;},
+        function(p, v) {p.count--;if (p.count == 0) {p.total = 0; p.average = 0;} else {p.total -= v["OCD"];p.average = p.total/p.count;}return p;},
+        function() {return {count: 0, total: 0, average: 0};});
+    var depressionGroup = xAxisDimension.group().reduce(
+        function(p, v) {p.count++; p.total += v["Depression"]; p.average = p.total/p.count; return p;},
+        function(p, v) {p.count--;if (p.count == 0) {p.total = 0; p.average = 0;} else {p.total -= v["Depression"];p.average = p.total/p.count;}return p;},
+        function() {return {count: 0, total: 0, average: 0};});
+    var anxietyGroup = xAxisDimension.group().reduce(
+        function(p, v) {p.count++; p.total += v["Anxiety"]; p.average = p.total/p.count; return p;},
+        function(p, v) {p.count--;if (p.count == 0) {p.total = 0; p.average = 0;} else {p.total -= v["Anxiety"];p.average = p.total/p.count;}return p;},
+        function() {return {count: 0, total: 0, average: 0};});
+
+    var chart5 = dc.lineChart('#chart5', groupName);
+    chart5
+        .dimension(xAxisDimension)
+        .renderArea(true) 
+        .x(d3.scaleLinear().domain([0, 24]))
+        .xAxisLabel("Nb heures")
+        .yAxisLabel("Somme moyenne troubles mentaux")
         .brushOn(false)
-        .yAxisLabel("Niveau")
-        .xAxisLabel("Nombre d'heures")
-        .dimension(seriesDimension)
-        .group(seriesGroup)
-        .seriesAccessor(function(d) {return d.key[0];})
-        .keyAccessor(function(d) {return d.key[1];})
-        .legend(dc.legend().x(50).y(20).itemHeight(13).gap(5).horizontal(2).legendWidth(1360).itemWidth(70));
+        .legend(dc.legend().x(80).y(20).itemHeight(13).gap(5))
+        .title(function(d) {
+        return 'Nb heures: '+d.key + ', Moyenne de niveau du trouble mental: ' + d.value.average;
+        })
+        .group(insomniaGroup, 'Insomnia', function(d) {
+            return d.value.average;
+          })
+        .stack(OCDGroup, 'OCD', function(d) {
+            return d.value.average;
+          })
+        .stack(depressionGroup, 'Depression', function(d) {
+            return d.value.average;
+          })
+        .stack(anxietyGroup, 'Anxiety', function(d) {
+        return d.value.average;
+        });
+
+    var xAxisDimension = mycrossfilter.dimension(function(d) { return d["Hours per day"]; });
+    var ageGroup = xAxisDimension.group().reduce(
+        function(p, v) {p.count++; p.total += v["Age"]; p.average = p.total/p.count; return p;},
+        function(p, v) {p.count--;if (p.count == 0) {p.total = 0; p.average = 0;} else {p.total -= v["Age"];p.average = p.total/p.count;}return p;},
+        function() {return {count: 0, total: 0, average: 0};});
+    
+    var chart6 = dc.lineChart('#chart6', groupName);
+    chart6
+        .dimension(xAxisDimension)
+        .xAxisLabel("Nb heures")
+        .yAxisLabel("Age moyen")
+        .x(d3.scaleLinear().domain([0, 24]))
+        .y(d3.scaleLinear().domain([17, 55]))
+        .legend(dc.legend().x(80).y(20).itemHeight(13).gap(5))
+        .brushOn(false)
+        .title(function(d) {
+        return 'Nombres d\'heures: '+d.key + ', Age moyen: ' + d.value.average;
+        })
+        .group(ageGroup, 'Age', function(d) {
+            return d.value.average;
+        });
 
     // On veut rendre tous les graphiques qui proviennent du chart group "dataset"
     dc.renderAll(groupName);
